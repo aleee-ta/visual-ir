@@ -3,7 +3,7 @@
   "displayName": "visual-ir",
   "publisher": "some-industries",
   "description": "Visualize ACIR and SSA for Noir lang by analyze JSON serialized internal entities",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/dev/null"
@@ -72,7 +72,7 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test --disable-gpu --no-sandbox --extensionDevelopmentPath=. --extensionTestsPath=./test"
   },
   "devDependencies": {
     "@types/vscode": "^1.99.0",

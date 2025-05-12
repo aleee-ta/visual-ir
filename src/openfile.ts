@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-const SSAMapper: { [key: string]: string } = {
+export const SSAMapper: { [key: string]: string } = {
     initial: "Initial SSA",
     rm_unreachable_1: "Removing Unreachable Functions (1st)",
     defunc: "Defunctionalization",
@@ -111,7 +111,7 @@ async function openSsaView(uri: vscode.Uri) {
     ssaWebviewPanel.webview.html = getWebviewHtml(processedContent);
 }
 
-function processSsaContent(content: string): string {
+export function processSsaContent(content: string): string {
     return content
         .split('\n')
         .map(line => {
@@ -127,7 +127,7 @@ function processSsaContent(content: string): string {
         .join('\n');
 }
 
-function getWebviewHtml(content: string): string {
+export function getWebviewHtml(content: string): string {
     return `
         <!DOCTYPE html>
         <html>
@@ -336,7 +336,7 @@ async function openNrFile(uri: vscode.Uri) {
 
     try {
         const baseDir = path.dirname(uri.fsPath);
-        const jsonPath = path.join(baseDir, '..', 'ssa', SSAMapper);
+        const jsonPath = path.join(baseDir, '..', 'ssa', "00_initial.ssa.json");
         const jsonUri = vscode.Uri.file(jsonPath);
 
         const rawData = await vscode.workspace.fs.readFile(jsonUri);
@@ -358,12 +358,12 @@ async function openNrFile(uri: vscode.Uri) {
         const locationDecorations: vscode.DecorationOptions[] = [];
 
         locations.forEach((loc: any, index: number) => {
-            if (!loc?.value?.span?.start || !loc?.value?.span?.end) return;
+            if (!loc?.value?.span?.start || !loc?.value?.span?.end) { return; }
 
             const startOffset = Number(loc.value.span.start);
             const endOffset = Number(loc.value.span.end);
             
-            if (isNaN(startOffset) || isNaN(endOffset)) return;
+            if (isNaN(startOffset) || isNaN(endOffset)) { return; }
 
             const range = new vscode.Range(
                 document.positionAt(startOffset),

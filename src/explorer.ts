@@ -24,7 +24,7 @@ export class IrExplorerProvider implements vscode.TreeDataProvider<IrItem> {
     }
 
     async getChildren(element?: IrItem): Promise<IrItem[]> {
-        if (!this.cacheRoot) return [];
+        if (!this.cacheRoot) { return []; }
         
         if (!element) {
             return this.getDirectoryItems(this.cacheRoot);
