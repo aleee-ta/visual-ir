@@ -1,6 +1,42 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
+const SSAMapper: { [key: string]: string } = {
+    initial: "Initial SSA",
+    rm_unreachable_1: "Removing Unreachable Functions (1st)",
+    defunc: "Defunctionalization",
+    inlining_simple: "Inlining simple functions",
+    mem2reg_1: "Mem2Reg (1st)",
+    rm_rc_pairs: "Removing Paired rc_inc & rc_decs",
+    preprocess: "Preprocessing Functions",
+    inline_1: "Inlining (1st)",
+    mem2reg_2: "Mem2Reg (2nd)",
+    simplify_1: "Simplifying (1st)",
+    as_slice: "`as_slice` optimization",
+    rm_unreachable_2: "Removing Unreachable Functions (2nd)",
+    assert: "`static_assert` and `assert_constant`",
+    loop_invariant: "Loop Invariant Code Motion",
+    unroll: "Unrolling",
+    simplify_2: "Simplifying (2nd)",
+    mem2reg_3: "Mem2Reg (3rd)",
+    flatten: "Flattening",
+    rm_big_shifts: "Removing Bit Shifts",
+    mem2reg_4: "Mem2Reg (4th)",
+    inline_2: "Inlining (2nd)",
+    rm_ifelse: "Remove IfElse",
+    fold_constraints: "Constant Folding",
+    rm_enable_side_eff: "EnableSideEffectsIf removal",
+    fold_constants: "Constraint Folding",
+    add_not_equal: "Adding constrain not equal",
+    rm_dead_1: "Dead Instruction Elimination (1st)",
+    simplify_3: "Simplifying (3rd)",
+    array_set_optimize: "Array Set Optimizations",
+    check_undeconstrain: "Check for Underconstrained Values",
+    check_missing_brillig: "Check for Missing Brillig Call Constraints",
+    inline_brillig: "Brillig Calls Inlining",
+    rm_dead_2: "Dead Instruction Elimination (2nd)",
+};
+
 interface CodeLocation {
     value: {
         span: { start: number; end: number };
@@ -156,7 +192,6 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
     const location = jsonData.call_stack_data.locations[locationId];
     console.log(`Processing location:`, JSON.stringify(location, null, 2));
 
-    // Получение абсолютного пути к целевому файлу
     const baseDir = path.dirname(ssaUri.fsPath);
     const targetPath = path.resolve(
         baseDir,
@@ -170,7 +205,6 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
         const targetUri = vscode.Uri.file(targetPath);
         console.log(`Trying to open: ${targetUri.fsPath}`);
 
-        // Открытие документа с проверкой существования
         let document: vscode.TextDocument;
         try {
             document = await vscode.workspace.openTextDocument(targetUri);
@@ -179,7 +213,6 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
             return;
         }
 
-        // Получение позиций с обработкой ошибок
         let startPos: vscode.Position;
         let endPos: vscode.Position;
         try {
@@ -192,7 +225,6 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
 
         console.log(`Calculated positions: ${startPos.line}:${startPos.character} - ${endPos.line}:${endPos.character}`);
 
-        // Открытие редактора с проверкой
         let editor: vscode.TextEditor;
         if (openEditors.has(targetUri.fsPath)) {
             editor = openEditors.get(targetUri.fsPath)!;
@@ -206,12 +238,10 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
             console.log(`Opened new editor for ${targetUri.fsPath}`);
         }
 
-        // Обновление выделения
         editor.selections = [new vscode.Selection(startPos, endPos)];
         editor.revealRange(new vscode.Range(startPos, endPos), 
             vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 
-        // Яркая временная подсветка
         const decoration = vscode.window.createTextEditorDecorationType({
             backgroundColor: new vscode.ThemeColor('editor.selectionBackground'),
             border: '1px solid yellow',
@@ -221,7 +251,6 @@ async function handleLocationHover(message: any, ssaUri: vscode.Uri) {
         editor.setDecorations(decoration, [new vscode.Range(startPos, endPos)]);
         console.log(`Applied decorations`);
 
-        // Автоматическая очистка через 2 секунды
         setTimeout(() => {
             decoration.dispose();
             console.log(`Disposed decorations for ${targetUri.fsPath}`);
@@ -291,7 +320,81 @@ async function openAcirView(uri: vscode.Uri) {
     });
 }
 
+const locationDecorationType = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(255,229,100,0.3)',
+    overviewRulerColor: 'rgba(255,229,100,0.8)',
+    overviewRulerLane: vscode.OverviewRulerLane.Right
+});
+
+const locationIdDecorationType = vscode.window.createTextEditorDecorationType({
+});
+
+
 async function openNrFile(uri: vscode.Uri) {
     const document = await vscode.workspace.openTextDocument(uri);
-    await vscode.window.showTextDocument(document);
+    const editor = await vscode.window.showTextDocument(document);
+
+    try {
+        const baseDir = path.dirname(uri.fsPath);
+        const jsonPath = path.join(baseDir, '..', 'ssa', SSAMapper);
+        const jsonUri = vscode.Uri.file(jsonPath);
+
+        const rawData = await vscode.workspace.fs.readFile(jsonUri);
+        const jsonData = JSON.parse(rawData.toString());
+
+        const ssaFunction = jsonData?.functions?.[0]?.[1];
+        if (!ssaFunction) {
+            throw new Error("Function structure not found in JSON");
+        }
+
+        const callStackData = ssaFunction.dfg?.call_stack_data;
+        if (!callStackData?.locations) {
+            throw new Error("Call stack locations not found in DFG data");
+        }
+
+        const locations = callStackData.locations;
+
+        const ranges: vscode.Range[] = [];
+        const locationDecorations: vscode.DecorationOptions[] = [];
+
+        locations.forEach((loc: any, index: number) => {
+            if (!loc?.value?.span?.start || !loc?.value?.span?.end) return;
+
+            const startOffset = Number(loc.value.span.start);
+            const endOffset = Number(loc.value.span.end);
+            
+            if (isNaN(startOffset) || isNaN(endOffset)) return;
+
+            const range = new vscode.Range(
+                document.positionAt(startOffset),
+                document.positionAt(endOffset)
+            );
+            ranges.push(range);
+
+            const line = document.positionAt(endOffset).line;
+            const lineEnd = document.lineAt(line).range.end;
+            
+            locationDecorations.push({
+                range: new vscode.Range(lineEnd, lineEnd),
+                renderOptions: {
+                after: {
+                    contentText: `//L${index}`,
+                    color: 'rgba(128,128,128,0.7)',
+                    fontStyle: 'italic',
+                    margin: '0 0 0 2em'
+                }
+            }
+            });
+        });
+
+        if (ranges.length > 0) {
+            editor.setDecorations(locationDecorationType, ranges);
+            editor.setDecorations(locationIdDecorationType, locationDecorations);
+        } else {
+            vscode.window.showWarningMessage("No valid locations found in data");
+        }
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Data Error: ${error instanceof Error ? error.message : error}`);
+    }
 }
